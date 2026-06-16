@@ -672,29 +672,9 @@ function infoCard(title, text) {
   return `<section class="info-card"><h3>${title}</h3><p>${text}</p></section>`;
 }
 
-function advisorAdviceCard(bed) {
-  const suggestion = expertSuggestion(bed);
-  const empty = !activeCrops(bed).length;
-  return `
-    <section class="info-card advisor-advice-card">
-      <div class="advisor-card-head">
-        <h3>种植专家建议</h3>
-        <span>${empty ? "待规划" : bedRoleName(bed)}</span>
-      </div>
-      <p>${suggestion.text}</p>
-      <div class="advisor-crop-suggestions">
-        ${suggestion.crops.map((name) => `
-          <button type="button" data-action="add-crop" data-crop="${name}">
-            <img src="${spriteFor(name)}" alt="${name}" />
-            <span>${name}</span>
-          </button>
-        `).join("")}
-      </div>
-    </section>
-  `;
-}
-
 function detailContent(bed) {
+  const tasks = safeTasks(bed);
+  const doneCount = tasks.filter((task) => state.completed.has(task)).length;
   return `
     <section class="info-card editor-card crop-list-card">
       <div class="crop-list-head"><h3>作物列表</h3><span>${activeCrops(bed).length ? `${activeCrops(bed).length} 种作物` : "待添加"}</span></div>
@@ -721,10 +701,26 @@ function detailContent(bed) {
       </div>
       <button class="reset-button" type="button" data-action="reset-bed">重置此地块</button>
     </section>
-    ${advisorAdviceCard(bed)}
     <section class="info-card"><h3>水分需求</h3><div class="water-meter">${Array.from({ length: 7 }).map((_, index) => `<span class="${index < Math.round(bed.water / 14) ? "filled" : ""}"></span>`).join("")}</div><p>${bed.water < 46 ? "偏干，今晚需要深浇。" : "保持均匀湿润，避免积水。"}</p></section>
     ${infoCard("有机施肥建议", `${bed.soil}；果菜期每 2-3 周薄施堆肥茶或羊毛肥。`)}
-    <section class="info-card tasks"><h3>当前任务（${safeTasks(bed).filter((task) => state.completed.has(task)).length}/${safeTasks(bed).length}）</h3>${safeTasks(bed).map((task) => `<button type="button" class="${state.completed.has(task) ? "done" : ""}" data-task="${task}"><span>${state.completed.has(task) ? "✓" : ""}</span>${task}</button>`).join("")}<button type="button" class="add-task" data-action="add-task">+ 添加任务</button></section>
+    <section class="info-card tasks">
+      <h3>当前任务（${doneCount}/${tasks.length}）</h3>
+      <div class="task-list">
+        ${tasks.map((task, index) => `
+          <div class="task-row ${state.completed.has(task) ? "done" : ""}">
+            <button type="button" class="task-toggle" data-task="${escapeHtml(task)}">
+              <span>${state.completed.has(task) ? "✓" : ""}</span>
+              <strong>${escapeHtml(task)}</strong>
+            </button>
+            <button type="button" class="task-remove" data-action="remove-task" data-task-index="${index}">删除</button>
+          </div>
+        `).join("") || `<p class="muted">暂无当前任务。</p>`}
+      </div>
+      <div class="task-add-row">
+        <input id="bed-task-input" type="text" placeholder="新增任务" />
+        <button type="button" data-action="add-task">添加</button>
+      </div>
+    </section>
   `;
 }
 
@@ -1354,10 +1350,19 @@ function removeCrop(index) {
 }
 
 function addTaskToActiveBed() {
-  const text = window.prompt("添加今天/近期任务");
+  const input = document.querySelector("#bed-task-input");
+  const text = input?.value || "";
   if (!text || !text.trim()) return;
   if (!Array.isArray(activeBedRaw().tasks)) activeBedRaw().tasks = [];
   activeBedRaw().tasks.push(text.trim());
+  saveGardenState();
+}
+
+function removeTaskFromActiveBed(index) {
+  const bed = activeBedRaw();
+  if (!Array.isArray(bed.tasks) || !bed.tasks[index]) return;
+  state.completed.delete(bed.tasks[index]);
+  bed.tasks.splice(index, 1);
   saveGardenState();
 }
 
@@ -1656,6 +1661,7 @@ root.addEventListener("click", (event) => {
     if (action === "remove-crop") removeCrop(Number(actionButton.dataset.cropIndex));
     if (action === "add-selected-crop") addCropToActiveBed(document.querySelector("#crop-add-select").value);
     if (action === "add-task") addTaskToActiveBed();
+    if (action === "remove-task") removeTaskFromActiveBed(Number(actionButton.dataset.taskIndex));
     if (action === "add-scheduled-task") addScheduledTask();
     if (action === "remove-scheduled-task") removeScheduledTask(actionButton.dataset.taskId);
     if (action === "analyze-pest-photo" && !state.pestDiagnosisBusy) analyzePestFromForm();
@@ -1736,6 +1742,14 @@ root.addEventListener("input", (event) => {
     render();
     startClock();
   }
+});
+
+root.addEventListener("keydown", (event) => {
+  if (event.target.id !== "bed-task-input" || event.key !== "Enter") return;
+  event.preventDefault();
+  addTaskToActiveBed();
+  render();
+  startClock();
 });
 
 function updateSelectedPlantDetail(fieldId, value) {
