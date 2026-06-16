@@ -815,7 +815,8 @@ p {
 }
 
 .plant-grid {
-  --plant-cols: 2;
+  --plant-cols: 3;
+  --plant-rows: 10;
   --plant-size: 22px;
   --plant-gap: 4px;
   --plant-label: 7px;
@@ -823,7 +824,7 @@ p {
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(var(--plant-cols), var(--plant-size));
-  grid-auto-rows: var(--plant-size);
+  grid-template-rows: repeat(var(--plant-rows), var(--plant-size));
   gap: var(--plant-gap);
   justify-content: center;
   justify-items: center;
@@ -832,12 +833,40 @@ p {
   overflow: visible;
 }
 
+.plant-cell {
+  width: var(--plant-size);
+  height: var(--plant-size);
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+  transition: background 120ms ease, outline-color 120ms ease, transform 120ms ease;
+}
+
+.is-editing .plant-cell {
+  background: rgba(255, 255, 255, 0.035);
+  outline-color: rgba(255, 255, 255, 0.1);
+}
+
+.plant-cell.cell-drag-over {
+  background: rgba(255, 244, 122, 0.18);
+  outline-color: rgba(255, 244, 122, 0.84);
+  transform: scale(1.08);
+}
+
 .plant-sprite-unit {
   position: relative;
   display: inline-grid;
   place-items: center;
   width: var(--plant-size);
   height: var(--plant-size);
+  cursor: grab;
+}
+
+.plant-sprite-unit.dragging {
+  opacity: 0.55;
+  cursor: grabbing;
 }
 
 .plant-sprite {

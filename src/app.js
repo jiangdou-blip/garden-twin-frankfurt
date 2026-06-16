@@ -15,6 +15,7 @@ const navItems = [
   { key: "notes", label: "笔记", symbol: "笔" },
 ];
 const STORAGE_KEY = "garden-twin-state-v2";
+const BED_GRID_COLUMNS = 3;
 const state = {
   selectedBed: 3,
   selectedPlant: null,
@@ -563,15 +564,72 @@ function expertSuggestion(bed) {
 function plantMatrixSettings(bed) {
   const total = plantTotal(bed);
   if (!total) return { className: "", style: "" };
-  const cols = total <= 4 ? 2 : total <= 10 ? 2 : total <= 18 ? 3 : total <= 32 ? 4 : total <= 50 ? 5 : 6;
-  const size = total <= 4 ? 25 : total <= 10 ? 22 : total <= 18 ? 18 : total <= 32 ? 15 : total <= 50 ? 12 : 10;
-  const gap = total <= 10 ? 5 : total <= 32 ? 3 : 2;
-  const label = total <= 18 ? 7 : total <= 32 ? 6 : 5;
-  const density = total > 50 ? "ultra" : total > 32 ? "dense" : total > 18 ? "compact" : "";
+  const rows = plantGridRows(bed);
+  const cols = BED_GRID_COLUMNS;
+  const size = rows <= 10 ? 23 : rows <= 16 ? 18 : rows <= 24 ? 14 : 11;
+  const gap = rows <= 10 ? 5 : rows <= 18 ? 3 : 2;
+  const label = rows <= 16 ? 7 : rows <= 24 ? 6 : 5;
+  const density = rows > 24 ? "ultra" : rows > 16 ? "dense" : rows > 10 ? "compact" : "";
   return {
     className: density,
-    style: `--plant-cols:${cols}; --plant-size:${size}px; --plant-gap:${gap}px; --plant-label:${label}px;`,
+    style: `--plant-cols:${cols}; --plant-rows:${rows}; --plant-size:${size}px; --plant-gap:${gap}px; --plant-label:${label}px;`,
   };
+}
+
+function plantGridRows(bed) {
+  const total = plantTotal(bed);
+  return Math.max(10, Math.ceil((total + BED_GRID_COLUMNS) / BED_GRID_COLUMNS));
+}
+
+function plantGridSlotCount(bed) {
+  return plantGridRows(bed) * BED_GRID_COLUMNS;
+}
+
+function plantItems(bed) {
+  const items = [];
+  let serial = 1;
+  activeCrops(bed).forEach((crop) => {
+    const count = Math.max(0, crop.count || 0);
+    for (let index = 0; index < count; index += 1) {
+      items.push({
+        serial,
+        code: plantCode(bed, serial),
+        crop: crop.name,
+        cropNumber: index + 1,
+        cropCount: count,
+      });
+      serial += 1;
+    }
+  });
+  return items;
+}
+
+function normalizedPlantLayout(bed) {
+  return bed && typeof bed.plantLayout === "object" && !Array.isArray(bed.plantLayout) ? bed.plantLayout : {};
+}
+
+function nextOpenSlot(occupied, slotCount) {
+  for (let slot = 0; slot < slotCount; slot += 1) {
+    if (!occupied.has(slot)) return slot;
+  }
+  return slotCount - 1;
+}
+
+function plantSlotAssignments(bed) {
+  const slotCount = plantGridSlotCount(bed);
+  const layout = normalizedPlantLayout(bed);
+  const occupied = new Set();
+  const bySerial = new Map();
+  const bySlot = new Map();
+  plantItems(bed).forEach((item) => {
+    const saved = Number(layout[item.serial]);
+    const requested = Number.isInteger(saved) && saved >= 0 && saved < slotCount ? saved : item.serial - 1;
+    const slot = occupied.has(requested) ? nextOpenSlot(occupied, slotCount) : requested;
+    occupied.add(slot);
+    bySerial.set(item.serial, slot);
+    bySlot.set(slot, item);
+  });
+  return { bySerial, bySlot, slotCount };
 }
 
 function plantDensityClass(bed) {
@@ -587,17 +645,15 @@ function plantSprites(bed) {
     const suggestion = expertSuggestion(bed);
     return `<div class="empty-bed-advisor"><b>种植顾问</b><span>${suggestion.short}</span><small>${suggestion.crops.join(" + ")}</small></div>`;
   }
-  const sprites = [];
-  let serial = 1;
-  activeCrops(bed).forEach((crop) => {
-    const count = Math.max(0, crop.count || 0);
-    for (let index = 0; index < count; index += 1) {
-      const code = plantCode(bed, serial);
-      sprites.push(`<span class="plant-sprite-unit" data-plant-code="${code}" data-bed-id="${bed.id}" title="${code} · ${crop.name} ${index + 1}/${count}"><img class="plant-sprite" src="${spriteFor(crop.name)}" alt="${code} ${crop.name}" /><em>${code}</em></span>`);
-      serial += 1;
-    }
-  });
-  return sprites.join("");
+  const { bySlot, slotCount } = plantSlotAssignments(bed);
+  return Array.from({ length: slotCount }, (_, slot) => {
+    const item = bySlot.get(slot);
+    return `
+      <span class="plant-cell" data-slot="${slot}" data-bed-id="${bed.id}">
+        ${item ? `<span class="plant-sprite-unit" draggable="true" data-plant-code="${item.code}" data-plant-serial="${item.serial}" data-bed-id="${bed.id}" title="${item.code} · ${item.crop} ${item.cropNumber}/${item.cropCount}"><img class="plant-sprite" src="${spriteFor(item.crop)}" alt="${item.code} ${item.crop}" /><em>${item.code}</em></span>` : ""}
+      </span>
+    `;
+  }).join("");
 }
 function comboTitle(bed) {
   const crops = activeCrops(bed);
@@ -1251,6 +1307,7 @@ function normalizeBed(savedBed, fallbackBed) {
     water: Number.isFinite(source.water) ? source.water : base.water,
     soil: source.soil || base.soil,
     note: source.note || base.note,
+    plantLayout: source.plantLayout && typeof source.plantLayout === "object" && !Array.isArray(source.plantLayout) ? source.plantLayout : {},
     crops: crops
       .filter((crop) => crop && typeof crop === "object")
       .map((crop) => {
@@ -1366,6 +1423,27 @@ function reorderBed(fromId, targetId, placeAfter = false) {
   state.beds.splice(targetIndexAfterRemoval + (placeAfter ? 1 : 0), 0, moved);
   state.selectedBed = moved.id;
   state.selectedPlant = null;
+  saveGardenState();
+  return true;
+}
+
+function movePlantToSlot(fromBedId, serial, targetBedId, targetSlot) {
+  fromBedId = Number(fromBedId);
+  serial = Number(serial);
+  targetBedId = Number(targetBedId);
+  targetSlot = Number(targetSlot);
+  if (!fromBedId || !targetBedId || fromBedId !== targetBedId || !serial || !Number.isInteger(targetSlot)) return false;
+  const bed = state.beds.find((item) => item.id === targetBedId);
+  if (!bed) return false;
+  const { bySerial, bySlot, slotCount } = plantSlotAssignments(bed);
+  if (!bySerial.has(serial) || targetSlot < 0 || targetSlot >= slotCount) return false;
+  if (!bed.plantLayout || typeof bed.plantLayout !== "object" || Array.isArray(bed.plantLayout)) bed.plantLayout = {};
+  const fromSlot = bySerial.get(serial);
+  const targetPlant = bySlot.get(targetSlot);
+  if (targetPlant && targetPlant.serial !== serial) bed.plantLayout[targetPlant.serial] = fromSlot;
+  bed.plantLayout[serial] = targetSlot;
+  state.selectedBed = bed.id;
+  state.selectedPlant = plantCode(bed, serial);
   saveGardenState();
   return true;
 }
@@ -1573,7 +1651,7 @@ function render() {
   const activeBed = beds.find((bed) => bed.id === state.selectedBed) || beds[2];
 
   root.innerHTML = `
-    <div class="app-shell">
+    <div class="app-shell ${state.editMode ? "is-editing" : ""}">
       <aside class="sidebar">
         <div class="brand"><span class="brand-mark">叶</span><div><strong>Garden Twin</strong><span>${cloudStatusText()}</span></div></div>
         <nav class="nav-list" aria-label="主要导航">
@@ -1727,7 +1805,13 @@ root.addEventListener("dragstart", (event) => {
     event.dataTransfer.effectAllowed = "copy";
     return;
   }
-  if (event.target.closest("[data-plant-code]")) return;
+  const plant = event.target.closest("[data-plant-code]");
+  if (plant && plant.draggable) {
+    event.dataTransfer.setData("application/x-garden-plant", JSON.stringify({ bedId: plant.dataset.bedId, serial: plant.dataset.plantSerial }));
+    event.dataTransfer.effectAllowed = "move";
+    plant.classList.add("dragging");
+    return;
+  }
   const bed = event.target.closest(".bed-card[data-bed]");
   if (!bed || !bed.draggable) return;
   event.dataTransfer.setData("application/x-garden-bed", bed.dataset.bed);
@@ -1741,11 +1825,16 @@ root.addEventListener("dragover", (event) => {
   event.preventDefault();
   const types = Array.from(event.dataTransfer.types || []);
   const isBedMove = types.includes("application/x-garden-bed");
-  event.dataTransfer.dropEffect = isBedMove ? "move" : "copy";
+  const isPlantMove = types.includes("application/x-garden-plant");
+  event.dataTransfer.dropEffect = isBedMove || isPlantMove ? "move" : "copy";
   document.querySelectorAll(".bed-card.drag-before, .bed-card.drag-after").forEach((item) => item.classList.remove("drag-before", "drag-after"));
+  document.querySelectorAll(".plant-cell.cell-drag-over").forEach((item) => item.classList.remove("cell-drag-over"));
   if (isBedMove) {
     const rect = bed.getBoundingClientRect();
     bed.classList.add(event.clientX > rect.left + rect.width / 2 ? "drag-after" : "drag-before");
+  } else if (isPlantMove) {
+    const cell = event.target.closest(".plant-cell[data-slot]");
+    if (cell) cell.classList.add("cell-drag-over");
   } else {
     bed.classList.add("drag-over");
   }
@@ -1754,6 +1843,8 @@ root.addEventListener("dragover", (event) => {
 root.addEventListener("dragleave", (event) => {
   const bed = event.target.closest(".bed-card[data-bed]");
   if (bed) bed.classList.remove("drag-over", "drag-before", "drag-after");
+  const cell = event.target.closest(".plant-cell[data-slot]");
+  if (cell) cell.classList.remove("cell-drag-over");
 });
 
 root.addEventListener("drop", (event) => {
@@ -1761,11 +1852,22 @@ root.addEventListener("drop", (event) => {
   if (!bed) return;
   event.preventDefault();
   const movedBedId = event.dataTransfer.getData("application/x-garden-bed");
+  const movedPlant = event.dataTransfer.getData("application/x-garden-plant");
   const cropName = event.dataTransfer.getData("text/plain");
-  document.querySelectorAll(".bed-card.dragging, .bed-card.drag-over, .bed-card.drag-before, .bed-card.drag-after").forEach((item) => item.classList.remove("dragging", "drag-over", "drag-before", "drag-after"));
+  document.querySelectorAll(".bed-card.dragging, .bed-card.drag-over, .bed-card.drag-before, .bed-card.drag-after, .plant-sprite-unit.dragging, .plant-cell.cell-drag-over").forEach((item) => item.classList.remove("dragging", "drag-over", "drag-before", "drag-after", "cell-drag-over"));
   if (movedBedId) {
     const rect = bed.getBoundingClientRect();
     reorderBed(movedBedId, bed.dataset.bed, event.clientX > rect.left + rect.width / 2);
+  } else if (movedPlant) {
+    const cell = event.target.closest(".plant-cell[data-slot]");
+    if (cell) {
+      try {
+        const payload = JSON.parse(movedPlant);
+        movePlantToSlot(payload.bedId, payload.serial, cell.dataset.bedId, Number(cell.dataset.slot));
+      } catch {
+        return;
+      }
+    }
   } else if (cropName) {
     addCropToBed(Number(bed.dataset.bed), cropName);
   }
@@ -1774,7 +1876,7 @@ root.addEventListener("drop", (event) => {
 });
 
 root.addEventListener("dragend", () => {
-  document.querySelectorAll(".bed-card.dragging, .bed-card.drag-over, .bed-card.drag-before, .bed-card.drag-after").forEach((item) => item.classList.remove("dragging", "drag-over", "drag-before", "drag-after"));
+  document.querySelectorAll(".bed-card.dragging, .bed-card.drag-over, .bed-card.drag-before, .bed-card.drag-after, .plant-sprite-unit.dragging, .plant-cell.cell-drag-over").forEach((item) => item.classList.remove("dragging", "drag-over", "drag-before", "drag-after", "cell-drag-over"));
 });
 
 root.addEventListener("input", (event) => {
