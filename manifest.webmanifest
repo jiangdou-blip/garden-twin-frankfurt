@@ -1,0 +1,26 @@
+{
+  "name": "Garden Twin Frankfurt",
+  "short_name": "Garden Twin",
+  "description": "法兰克福 60 平米有机菜地的实时模拟与管理看板",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape-primary",
+  "background_color": "#f5f6f4",
+  "theme_color": "#073b22",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "./assets/app-icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/app-icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

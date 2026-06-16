@@ -1,0 +1,16 @@
+.DS_Store
+.npmrc
+AGENTS.md
+node_modules/
+dist/
+.vite/
+*.log
+Garden Twin.app/
+*.zip
+design-comparison.png
+prototype-desktop.png
+prototype-mobile.png
+prototype-file-pixel.png
+file-load-debug.png
+design-qa.md
+打开 Garden Twin.command
