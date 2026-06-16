@@ -715,7 +715,7 @@ p {
 .map-panel {
   position: relative;
   overflow: hidden;
-  min-height: 454px;
+  min-height: 590px;
   padding: 32px 30px 38px;
   background:
     linear-gradient(rgba(19, 57, 31, 0.22), rgba(19, 57, 31, 0.2)),
@@ -724,7 +724,7 @@ p {
 
 .garden-map {
   position: relative;
-  height: 384px;
+  height: 520px;
   display: grid;
   grid-template-columns: repeat(7, minmax(74px, 1fr));
   gap: 12px;
