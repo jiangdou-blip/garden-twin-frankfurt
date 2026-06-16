@@ -79,6 +79,12 @@ const spriteMap = {
   萝卜: "radish",
   樱桃萝卜: "radish",
   甜菜根: "beetroot",
+  姜: "ginger",
+  生姜: "ginger",
+  老姜: "ginger",
+  土豆: "potato",
+  马铃薯: "potato",
+  洋芋: "potato",
 };
 
 function formatDate(offset) {
