@@ -424,6 +424,7 @@ button {
 
 .main-column {
   min-width: 0;
+  padding-top: 18px;
 }
 
 .section-title {
