@@ -338,7 +338,7 @@ function gardenLayoutEditor() {
 function gardenLayoutModal() {
   if (!state.layoutModalOpen) return "";
   return `
-    <div class="modal-backdrop" data-action="close-layout-modal">
+    <div class="modal-backdrop">
       <section class="layout-modal" role="dialog" aria-modal="true" aria-label="菜园参数" data-modal-panel>
         <div class="modal-head">
           <div>
@@ -368,7 +368,7 @@ function cropLibraryPanel(activeBed) {
 function cropLibraryModal() {
   if (!state.libraryModalOpen) return "";
   return `
-    <div class="modal-backdrop" data-action="close-library-modal">
+    <div class="modal-backdrop">
       <section class="library-modal" role="dialog" aria-modal="true" aria-label="新增作物" data-modal-panel>
         <div class="modal-head">
           <div>
