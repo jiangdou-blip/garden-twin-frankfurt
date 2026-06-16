@@ -760,6 +760,32 @@ p {
   box-shadow: inset 0 0 0 2px rgba(255, 244, 122, 0.9), 0 20px 36px rgba(0, 0, 0, 0.28);
 }
 
+.bed-card.dragging {
+  opacity: 0.58;
+  transform: scale(0.985);
+}
+
+.bed-card.drag-before::before,
+.bed-card.drag-after::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  bottom: -10px;
+  width: 4px;
+  border-radius: 999px;
+  background: #fff47a;
+  box-shadow: 0 0 0 2px rgba(33, 71, 33, 0.34), 0 8px 18px rgba(0, 0, 0, 0.24);
+  z-index: 4;
+}
+
+.bed-card.drag-before::before {
+  left: -8px;
+}
+
+.bed-card.drag-after::after {
+  right: -8px;
+}
+
 .bed-card.selected {
   border-color: rgba(255, 255, 255, 0.28);
   box-shadow: inset 0 0 0 2px rgba(23, 18, 10, 0.18), 0 16px 28px rgba(0, 0, 0, 0.2);

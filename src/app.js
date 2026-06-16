@@ -130,7 +130,12 @@ function bedCode(id) {
 }
 
 function bedTitle(bedOrId) {
-  return bedCode(typeof bedOrId === "object" ? bedOrId.id : bedOrId);
+  if (typeof bedOrId === "object" && bedOrId) {
+    const index = state.beds.findIndex((bed) => bed.id === bedOrId.id);
+    return bedCode(index >= 0 ? index + 1 : bedOrId.id);
+  }
+  const index = state.beds.findIndex((bed) => bed.id === Number(bedOrId));
+  return bedCode(index >= 0 ? index + 1 : bedOrId);
 }
 
 function plantCode(bed, serial) {
@@ -1355,6 +1360,22 @@ function removeCrop(index) {
   saveGardenState();
 }
 
+function reorderBed(fromId, targetId, placeAfter = false) {
+  fromId = Number(fromId);
+  targetId = Number(targetId);
+  if (!fromId || !targetId || fromId === targetId) return false;
+  const fromIndex = state.beds.findIndex((bed) => bed.id === fromId);
+  const targetIndex = state.beds.findIndex((bed) => bed.id === targetId);
+  if (fromIndex < 0 || targetIndex < 0) return false;
+  const [moved] = state.beds.splice(fromIndex, 1);
+  const targetIndexAfterRemoval = state.beds.findIndex((bed) => bed.id === targetId);
+  state.beds.splice(targetIndexAfterRemoval + (placeAfter ? 1 : 0), 0, moved);
+  state.selectedBed = moved.id;
+  state.selectedPlant = null;
+  saveGardenState();
+  return true;
+}
+
 function addTaskToActiveBed() {
   const input = document.querySelector("#bed-task-input");
   const text = input?.value || "";
@@ -1566,7 +1587,7 @@ function render() {
         </nav>
         <section class="edit-panel" aria-label="编辑模式">
           <div class="panel-head"><span>编辑模式</span><button class="switch ${state.editMode ? "on" : ""}" type="button" data-action="toggle-edit"><span></span></button></div>
-          <p>拖换作物到地块，或调整数量。长按地块可查看轮作限制。</p>
+          <p>拖换作物到地块，拖动地块可调整顺序，右栏可编辑数量。</p>
           <label class="slider-label" for="moisture">土壤湿度（整体）</label>
           <input id="moisture" class="range" type="range" min="32" max="82" value="${state.moisture}" />
           <div class="range-row"><span>干燥</span><strong>${state.moisture}%</strong><span>湿润</span></div>
@@ -1588,7 +1609,7 @@ function render() {
             <div class="garden-area">
               <div class="map-panel">
                 <div class="compass top">北</div><div class="compass bottom">南</div><div class="compass left">西</div><div class="compass right">东</div><div class="measure vertical">${gardenTotalWidth()} m</div><div class="measure horizontal">${state.layout.plotLength} m</div>
-                <div class="garden-map" style="grid-template-columns: repeat(${state.layout.plotCount}, minmax(74px, 1fr));">${beds.map((bed) => `<button type="button" class="bed-card ${bed.status}" data-bed="${bed.id}"><span class="bed-number">${bedTitle(bed)}</span><strong>${bedRoleName(bed)}</strong><div class="plant-grid ${plantDensityClass(bed)} ${activeCrops(bed).length ? "" : "empty"}" style="${plantGridStyle(bed)}">${plantSprites(bed)}</div><div class="crop-summary">${cropSummary(bed)}</div></button>`).join("")}</div>
+                <div class="garden-map" style="grid-template-columns: repeat(${state.layout.plotCount}, minmax(74px, 1fr));">${beds.map((bed) => `<button type="button" class="bed-card ${bed.status}" draggable="true" data-bed="${bed.id}"><span class="bed-number">${bedTitle(bed)}</span><strong>${bedRoleName(bed)}</strong><div class="plant-grid ${plantDensityClass(bed)} ${activeCrops(bed).length ? "" : "empty"}" style="${plantGridStyle(bed)}">${plantSprites(bed)}</div><div class="crop-summary">${cropSummary(bed)}</div></button>`).join("")}</div>
               </div>
             </div>
             <div class="dashboard-row simplified">
@@ -1707,34 +1728,59 @@ root.addEventListener("click", (event) => {
 
 root.addEventListener("dragstart", (event) => {
   const cropButton = event.target.closest("[data-crop]");
-  if (!cropButton || !cropButton.draggable) return;
-  event.dataTransfer.setData("text/plain", cropButton.dataset.crop);
-  event.dataTransfer.effectAllowed = "copy";
+  if (cropButton && cropButton.draggable) {
+    event.dataTransfer.setData("text/plain", cropButton.dataset.crop);
+    event.dataTransfer.effectAllowed = "copy";
+    return;
+  }
+  if (event.target.closest("[data-plant-code]")) return;
+  const bed = event.target.closest(".bed-card[data-bed]");
+  if (!bed || !bed.draggable) return;
+  event.dataTransfer.setData("application/x-garden-bed", bed.dataset.bed);
+  event.dataTransfer.effectAllowed = "move";
+  bed.classList.add("dragging");
 });
 
 root.addEventListener("dragover", (event) => {
   const bed = event.target.closest(".bed-card[data-bed]");
   if (!bed) return;
   event.preventDefault();
-  event.dataTransfer.dropEffect = "copy";
-  bed.classList.add("drag-over");
+  const types = Array.from(event.dataTransfer.types || []);
+  const isBedMove = types.includes("application/x-garden-bed");
+  event.dataTransfer.dropEffect = isBedMove ? "move" : "copy";
+  document.querySelectorAll(".bed-card.drag-before, .bed-card.drag-after").forEach((item) => item.classList.remove("drag-before", "drag-after"));
+  if (isBedMove) {
+    const rect = bed.getBoundingClientRect();
+    bed.classList.add(event.clientX > rect.left + rect.width / 2 ? "drag-after" : "drag-before");
+  } else {
+    bed.classList.add("drag-over");
+  }
 });
 
 root.addEventListener("dragleave", (event) => {
   const bed = event.target.closest(".bed-card[data-bed]");
-  if (bed) bed.classList.remove("drag-over");
+  if (bed) bed.classList.remove("drag-over", "drag-before", "drag-after");
 });
 
 root.addEventListener("drop", (event) => {
   const bed = event.target.closest(".bed-card[data-bed]");
   if (!bed) return;
   event.preventDefault();
+  const movedBedId = event.dataTransfer.getData("application/x-garden-bed");
   const cropName = event.dataTransfer.getData("text/plain");
-  bed.classList.remove("drag-over");
-  if (!cropName) return;
-  addCropToBed(Number(bed.dataset.bed), cropName);
+  document.querySelectorAll(".bed-card.dragging, .bed-card.drag-over, .bed-card.drag-before, .bed-card.drag-after").forEach((item) => item.classList.remove("dragging", "drag-over", "drag-before", "drag-after"));
+  if (movedBedId) {
+    const rect = bed.getBoundingClientRect();
+    reorderBed(movedBedId, bed.dataset.bed, event.clientX > rect.left + rect.width / 2);
+  } else if (cropName) {
+    addCropToBed(Number(bed.dataset.bed), cropName);
+  }
   render();
   startClock();
+});
+
+root.addEventListener("dragend", () => {
+  document.querySelectorAll(".bed-card.dragging, .bed-card.drag-over, .bed-card.drag-before, .bed-card.drag-after").forEach((item) => item.classList.remove("dragging", "drag-over", "drag-before", "drag-after"));
 });
 
 root.addEventListener("input", (event) => {
