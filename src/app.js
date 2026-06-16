@@ -21,6 +21,7 @@ const state = {
   plantDetails: {},
   pestDraft: { photo: "", fileName: "", imageStats: null },
   pestLogs: [],
+  pestDiagnosisBusy: false,
   dayOffset: 0,
   playing: false,
   speed: 1,
@@ -895,8 +896,8 @@ function pestMonitorView() {
             <label>作物<select id="pest-crop-select">${cropOptions.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label>
           </div>
           <label class="pest-note-field">观察记录<textarea id="pest-note" rows="4" placeholder="例如：叶背有小绿虫、叶片卷曲；或叶面有白色粉状斑。"></textarea></label>
-          <button class="primary-wide" type="button" data-action="analyze-pest-photo">识别问题并记录</button>
-          <p class="pest-hint">当前会结合照片特征、作物和症状文字给出初判；后续可接入更强的图像识别服务。</p>
+          <button class="primary-wide" type="button" data-action="analyze-pest-photo" ${state.pestDiagnosisBusy ? "disabled" : ""}>${state.pestDiagnosisBusy ? "正在识别..." : "识别问题并记录"}</button>
+          <p class="pest-hint">当前会结合照片特征、作物和症状文字给出初判；若已配置远程诊断接口，会优先使用远程识别。</p>
         </section>
         <section class="pest-advice-card">
           <h2>拍照建议</h2>
@@ -1058,7 +1059,7 @@ function imageStatsFromDataUrl(photo, callback) {
   image.src = photo;
 }
 
-function analyzePestFromForm() {
+async function analyzePestFromForm() {
   const bedId = Number(document.querySelector("#pest-bed-select")?.value) || state.selectedBed;
   const crop = document.querySelector("#pest-crop-select")?.value || "未指定作物";
   const note = document.querySelector("#pest-note")?.value.trim() || "";
@@ -1066,7 +1067,9 @@ function analyzePestFromForm() {
     window.alert("请先上传图片，或至少写一条观察记录。");
     return;
   }
-  const result = diagnosePest({ crop, note, imageStats: state.pestDraft.imageStats });
+  state.pestDiagnosisBusy = true;
+  render();
+  const result = await diagnosePestWithRemoteFallback({ crop, note, imageStats: state.pestDraft.imageStats, photo: state.pestDraft.photo });
   state.pestLogs.unshift({
     id: `pest-${Date.now()}`,
     createdAt: new Date().toISOString(),
@@ -1079,8 +1082,45 @@ function analyzePestFromForm() {
     ...result,
   });
   state.pestDraft = { photo: "", fileName: "", imageStats: null };
+  state.pestDiagnosisBusy = false;
   saveGardenState();
   render();
+}
+
+async function diagnosePestWithRemoteFallback(payload) {
+  const endpoint = window.GARDEN_TWIN_PEST_API_URL || "";
+  if (!endpoint) return diagnosePest(payload);
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        crop: payload.crop,
+        note: payload.note,
+        imageStats: payload.imageStats,
+        photo: payload.photo,
+        weather: state.weather?.current || null,
+        moisture: state.moisture,
+        location: "Frankfurt am Main, Germany",
+      }),
+    });
+    if (!response.ok) throw new Error(`diagnosis ${response.status}`);
+    const data = await response.json();
+    return normalizePestDiagnosis(data, diagnosePest(payload));
+  } catch (error) {
+    console.warn("Remote diagnosis failed; using local rules.", error);
+    return diagnosePest(payload);
+  }
+}
+
+function normalizePestDiagnosis(data, fallback) {
+  if (!data || typeof data !== "object") return fallback;
+  return {
+    diagnosis: String(data.diagnosis || fallback.diagnosis),
+    confidence: Math.max(35, Math.min(95, Number(data.confidence) || fallback.confidence)),
+    severity: String(data.severity || fallback.severity),
+    solution: Array.isArray(data.solution) && data.solution.length ? data.solution.slice(0, 5).map(String) : fallback.solution,
+  };
 }
 
 function removePestLog(id) {
@@ -1608,7 +1648,7 @@ root.addEventListener("click", (event) => {
     if (action === "add-task") addTaskToActiveBed();
     if (action === "add-scheduled-task") addScheduledTask();
     if (action === "remove-scheduled-task") removeScheduledTask(actionButton.dataset.taskId);
-    if (action === "analyze-pest-photo") analyzePestFromForm();
+    if (action === "analyze-pest-photo" && !state.pestDiagnosisBusy) analyzePestFromForm();
     if (action === "remove-pest-log") removePestLog(actionButton.dataset.logId);
     if (action === "apply-layout") {
       applyGardenLayoutFromInputs();
