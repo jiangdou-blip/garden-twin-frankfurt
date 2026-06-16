@@ -682,7 +682,6 @@ function advisorAdviceCard(bed) {
 
 function detailContent(bed) {
   return `
-    <div class="tabs single-tab"><button type="button" class="active" data-action="set-detail-tab" data-tab="combo">作物列表</button></div>
     <section class="info-card editor-card crop-list-card">
       <div class="crop-list-head"><h3>作物列表</h3><span>${activeCrops(bed).length ? `${activeCrops(bed).length} 种作物` : "待添加"}</span></div>
       <div class="edit-rows crop-list-rows">
