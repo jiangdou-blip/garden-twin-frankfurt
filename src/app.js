@@ -682,20 +682,18 @@ function advisorAdviceCard(bed) {
 
 function detailContent(bed) {
   return `
-    <div class="tabs single-tab"><button type="button" class="active" data-action="set-detail-tab" data-tab="combo">作物组合</button></div>
-    ${`
-    <section class="crop-combo"><div class="combo-preview">${activeCrops(bed).slice(0, 3).map((crop) => `<img src="${spriteFor(crop.name)}" alt="${crop.name}" />`).join("") || `<span class="empty-combo">空</span>`}</div><div><strong>${comboTitle(bed)}</strong><button type="button">编辑组合</button></div></section>
-    <section class="info-card editor-card">
-      <h3>编辑地块数据</h3>
-      <div class="edit-rows">
+    <div class="tabs single-tab"><button type="button" class="active" data-action="set-detail-tab" data-tab="combo">作物列表</button></div>
+    <section class="info-card editor-card crop-list-card">
+      <div class="crop-list-head"><h3>作物列表</h3><span>${activeCrops(bed).length ? `${activeCrops(bed).length} 种作物` : "待添加"}</span></div>
+      <div class="edit-rows crop-list-rows">
         ${safeCrops(bed).map((crop, index) => `
-          <div class="edit-row">
+          <div class="edit-row crop-list-row">
             <img src="${spriteFor(crop.name)}" alt="${crop.name}" />
             <span>${crop.name}</span>
-            <div class="stepper">
-              <button type="button" data-action="dec-crop" data-crop-index="${index}">−</button>
+            <div class="stepper" aria-label="${crop.name} 数量">
+              <button type="button" data-action="dec-crop" data-crop-index="${index}" aria-label="减少 ${crop.name}">−</button>
               <strong>${crop.count || 0}</strong>
-              <button type="button" data-action="inc-crop" data-crop-index="${index}">+</button>
+              <button type="button" data-action="inc-crop" data-crop-index="${index}" aria-label="增加 ${crop.name}">+</button>
             </div>
             <button class="remove-button" type="button" data-action="remove-crop" data-crop-index="${index}">删除</button>
           </div>
@@ -714,7 +712,6 @@ function detailContent(bed) {
     <section class="info-card"><h3>水分需求</h3><div class="water-meter">${Array.from({ length: 7 }).map((_, index) => `<span class="${index < Math.round(bed.water / 14) ? "filled" : ""}"></span>`).join("")}</div><p>${bed.water < 46 ? "偏干，今晚需要深浇。" : "保持均匀湿润，避免积水。"}</p></section>
     ${infoCard("有机施肥建议", `${bed.soil}；果菜期每 2-3 周薄施堆肥茶或羊毛肥。`)}
     <section class="info-card tasks"><h3>当前任务（${safeTasks(bed).filter((task) => state.completed.has(task)).length}/${safeTasks(bed).length}）</h3>${safeTasks(bed).map((task) => `<button type="button" class="${state.completed.has(task) ? "done" : ""}" data-task="${task}"><span>${state.completed.has(task) ? "✓" : ""}</span>${task}</button>`).join("")}<button type="button" class="add-task" data-action="add-task">+ 添加任务</button></section>
-    `}
   `;
 }
 

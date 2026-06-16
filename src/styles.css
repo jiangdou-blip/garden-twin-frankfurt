@@ -2558,3 +2558,53 @@ p {
     width: max-content;
   }
 }
+
+.crop-list-card {
+  gap: 12px;
+}
+
+.crop-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.crop-list-head h3 {
+  margin: 0;
+}
+
+.crop-list-head span {
+  color: #6a746d;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.crop-list-rows {
+  gap: 7px;
+}
+
+.crop-list-row {
+  grid-template-columns: 34px minmax(64px, 1fr) auto auto;
+  padding: 8px;
+  background: #fff;
+}
+
+.crop-list-row img {
+  width: 32px;
+  height: 32px;
+}
+
+.crop-list-row > span {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.crop-list-row .stepper {
+  height: 30px;
+  grid-template-columns: 28px 34px 28px;
+}
+
+.crop-list-row .stepper strong {
+  font-size: 14px;
+}
