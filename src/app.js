@@ -599,12 +599,6 @@ function plantSprites(bed) {
   });
   return sprites.join("");
 }
-function cropSummary(bed) {
-  const crops = activeCrops(bed);
-  if (!crops.length) return `<span class="advisor-summary">查看专家建议</span>`;
-  return crops.map((crop) => `<span>${crop.name}${crop.count ? ` x${crop.count}` : ""}</span>`).join("");
-}
-
 function comboTitle(bed) {
   const crops = activeCrops(bed);
   if (!crops.length) return "暂无作物 · 查看专家建议";
@@ -1609,7 +1603,7 @@ function render() {
             <div class="garden-area">
               <div class="map-panel">
                 <div class="compass top">北</div><div class="compass bottom">南</div><div class="compass left">西</div><div class="compass right">东</div><div class="measure vertical">${gardenTotalWidth()} m</div><div class="measure horizontal">${state.layout.plotLength} m</div>
-                <div class="garden-map" style="grid-template-columns: repeat(${state.layout.plotCount}, minmax(74px, 1fr));">${beds.map((bed) => `<button type="button" class="bed-card ${bed.status}" draggable="true" data-bed="${bed.id}"><span class="bed-number">${bedTitle(bed)}</span><strong>${bedRoleName(bed)}</strong><div class="plant-grid ${plantDensityClass(bed)} ${activeCrops(bed).length ? "" : "empty"}" style="${plantGridStyle(bed)}">${plantSprites(bed)}</div><div class="crop-summary">${cropSummary(bed)}</div></button>`).join("")}</div>
+                <div class="garden-map" style="grid-template-columns: repeat(${state.layout.plotCount}, minmax(74px, 1fr));">${beds.map((bed) => `<button type="button" class="bed-card ${bed.status}" draggable="true" data-bed="${bed.id}"><span class="bed-number">${bedTitle(bed)}</span><strong>${bedRoleName(bed)}</strong><div class="plant-grid ${plantDensityClass(bed)} ${activeCrops(bed).length ? "" : "empty"}" style="${plantGridStyle(bed)}">${plantSprites(bed)}</div></button>`).join("")}</div>
               </div>
             </div>
             <div class="dashboard-row simplified">

@@ -906,27 +906,6 @@ p {
   line-height: 1.3;
 }
 
-.crop-summary {
-  display: grid;
-  gap: 3px;
-  width: 100%;
-}
-
-.crop-summary span {
-  display: block;
-  padding: 2px 4px;
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.94);
-  background: rgba(0, 0, 0, 0.16);
-  font-size: 10px;
-  line-height: 1.2;
-}
-
-.crop-summary .advisor-summary {
-  color: #dfffd7;
-  background: rgba(11, 81, 40, 0.46);
-}
-
 .compass,
 .measure {
   position: absolute;
